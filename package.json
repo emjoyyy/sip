@@ -1,0 +1,19 @@
+{
+  "name": "student-internship-project",
+  "version": "1.0.0",
+  "description": "Full-stack student internship project",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install-all": "npm install",
+    "dev": "npm run dev --workspaces",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "build": "npm run build --workspaces",
+    "build:backend": "npm run build -w backend",
+    "build:frontend": "npm run build -w frontend"
+  }
+}
