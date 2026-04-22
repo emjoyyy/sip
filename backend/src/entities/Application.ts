@@ -11,8 +11,8 @@ export class Application {
  @Column({ default: "pending" })
  status!: string;
 
- @Column({ nullable: true })
- coverLetter!: string;
+ @Column({ type: "text", nullable: true })
+ coverLetter!: string | null;
 
  @ManyToOne(() => User)
  student!: User;

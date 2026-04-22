@@ -13,14 +13,14 @@ export class Job {
  @Column()
  description!: string;
 
- @Column({ nullable: true })
- requirements!: string;
+ @Column({ type: "text", nullable: true })
+ requirements!: string | null;
 
- @Column({ nullable: true })
- location!: string;
+ @Column({ type: "varchar", length: 255, nullable: true })
+ location!: string | null;
 
- @Column({ nullable: true })
- salaryRange!: string;
+ @Column({ type: "varchar", length: 255, nullable: true })
+ salaryRange!: string | null;
 
  @Column()
  jobType!: string;

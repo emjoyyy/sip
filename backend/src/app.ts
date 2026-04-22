@@ -1,8 +1,10 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import "reflect-metadata";
 
 import { AppDataSource } from "./config/data-source";
+import { ensureDatabaseExists } from "./config/ensureDatabase";
 
 // 🔥 CONTROLLERS
 import { 
@@ -13,12 +15,13 @@ import {
   deleteJob
 } from "./controller/jobController";
 
-import { registerUser } from "./controller/userController";
+import { deleteUser, registerUser } from "./controller/userController";
 import { loginUser } from "./controller/authController";
 
-import { 
-  getApplicationsByJob, 
-  createApplication 
+import {
+  createApplication,
+  deleteApplication,
+  getApplicationsByJob,
 } from "./controller/applicationController";
 
 const app = express();
@@ -30,6 +33,7 @@ app.use(express.json());
 // 🔐 AUTH
 app.post("/register", registerUser);
 app.post("/login", loginUser);
+app.delete("/users/:id", deleteUser);
 
 
 // 💼 JOBS
@@ -45,17 +49,21 @@ app.delete("/jobs/:id", deleteJob);
 // 📄 APPLICATIONS
 app.get("/applications/job/:jobId", getApplicationsByJob);
 app.post("/applications", createApplication);
+app.delete("/applications/:id", deleteApplication);
 
 
 // 🚀 START SERVER
-AppDataSource.initialize()
-  .then(() => {
-    console.log("DB Connected");
+void (async () => {
+  try {
+    await ensureDatabaseExists();
+    await AppDataSource.initialize();
+    console.log("DB connected");
 
     app.listen(3000, () => {
       console.log("Server running on port 3000");
     });
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error("DB ERROR:", err);
-  });
+    process.exit(1);
+  }
+})();

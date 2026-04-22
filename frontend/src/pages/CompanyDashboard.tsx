@@ -109,9 +109,20 @@ export default function CompanyDashboard({ user }: Props) {
     if (!confirm("Are you sure you want to delete this job?")) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/jobs/${jobId}`, {
-        method: "DELETE",
-      });
+      const appsRes = await fetch(
+        `http://localhost:3000/applications/job/${jobId}`
+      );
+      let hasApplications = false;
+      if (appsRes.ok) {
+        const apps = await appsRes.json();
+        hasApplications = Array.isArray(apps) && apps.length > 0;
+      }
+
+      const deleteUrl = hasApplications
+        ? `http://localhost:3000/jobs/${jobId}?cascade=true`
+        : `http://localhost:3000/jobs/${jobId}`;
+
+      const res = await fetch(deleteUrl, { method: "DELETE" });
 
       if (res.ok) {
         fetchCompanyJobs();

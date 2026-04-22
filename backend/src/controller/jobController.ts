@@ -1,171 +1,160 @@
 import { Request, Response } from "express";
-import { createJob } from "../service/jobService";
-import { AppDataSource } from "../config/data-source";
-import { User } from "../entities/User";
-import { Job } from "../entities/Job";
+import { jobService, toJobListItem } from "../service/jobService";
+import { userService } from "../service/userService";
 
-
-// 🔥 CREATE JOB
 export const postJob = async (req: Request, res: Response) => {
   try {
-    const {
-      userId,
-      title,
-      description,
-      requirements,
-      location,
-      salaryRange,
-      jobType,
-    } = req.body;
+    const userId = Number(req.body.userId);
+    const title = String(req.body.title ?? "").trim();
+    const description = String(req.body.description ?? "").trim();
+    const requirements = req.body.requirements;
+    const location = req.body.location;
+    const salaryRange = req.body.salaryRange;
+    const jobType = String(req.body.jobType ?? "").trim();
 
-    if (!userId || !title || !description) {
+    if (!Number.isInteger(userId) || userId < 1) {
+      return res.status(400).json({ error: "Invalid userId" });
+    }
+    if (!title || !description || !jobType) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOneBy({ id: userId });
-
-    if (!user || user.role !== "company") {
+    const company = await userService.findCompanyById(userId);
+    if (!company) {
       return res.status(400).json({ error: "Not a company" });
     }
 
-    const job = await createJob(user, {
+    const job = await jobService.create(company, {
       title,
       description,
-      requirements,
-      location,
-      salaryRange,
+      requirements:
+        requirements === undefined || requirements === null
+          ? null
+          : String(requirements),
+      location:
+        location === undefined || location === null ? null : String(location),
+      salaryRange:
+        salaryRange === undefined || salaryRange === null
+          ? null
+          : String(salaryRange),
       jobType,
     });
 
-    res.json(job);
-
+    return res.status(201).json(toJobListItem(job));
   } catch (err) {
-    console.log("POST JOB ERROR:", err);
-    res.status(500).send("Error creating job");
+    console.error("POST JOB ERROR:", err);
+    return res.status(500).json({ error: "Error creating job" });
   }
 };
 
-
-// 🔥 GET ALL JOBS
-export const getAllJobs = async (req: Request, res: Response) => {
+export const getAllJobs = async (_req: Request, res: Response) => {
   try {
-    const jobRepo = AppDataSource.getRepository(Job);
-
-    const jobs = await jobRepo.find({
-      relations: ["company"],
-    });
-
-    const formatted = jobs.map((job) => ({
-      id: job.id,
-      title: job.title,
-      description: job.description,
-      requirements: job.requirements,
-      location: job.location,
-      salary_range: job.salaryRange,
-      job_type: job.jobType,
-
-      first_name: job.company?.firstName,
-      last_name: job.company?.lastName,
-    }));
-
-    res.json(formatted);
-
+    const jobs = await jobService.findAllWithCompany();
+    return res.json(jobs.map(toJobListItem));
   } catch (err) {
-    console.log("GET ALL JOBS ERROR:", err);
-    res.status(500).send("Failed to load jobs");
+    console.error("GET ALL JOBS ERROR:", err);
+    return res.status(500).json({ error: "Failed to load jobs" });
   }
 };
 
-
-// 🔥 GET JOBS BY COMPANY
 export const getJobsByCompany = async (req: Request, res: Response) => {
   try {
     const companyId = Number(req.params.companyId);
-
-    if (!companyId) {
+    if (!Number.isInteger(companyId) || companyId < 1) {
       return res.status(400).json({ error: "Invalid company id" });
     }
 
-    const jobRepo = AppDataSource.getRepository(Job);
-
-    const jobs = await jobRepo.find({
-      where: {
-        company: { id: companyId },
-      },
-      relations: ["company"],
-    });
-
-    res.json(jobs);
-
+    const jobs = await jobService.findByCompanyId(companyId);
+    return res.json(jobs.map(toJobListItem));
   } catch (err) {
-    console.log("GET JOBS ERROR:", err);
-    res.status(500).send("Error fetching jobs");
+    console.error("GET JOBS ERROR:", err);
+    return res.status(500).json({ error: "Error fetching jobs" });
   }
 };
 
-
-// 🔥 UPDATE JOB (EDIT)
 export const updateJob = async (req: Request, res: Response) => {
   try {
     const jobId = Number(req.params.id);
+    if (!Number.isInteger(jobId) || jobId < 1) {
+      return res.status(400).json({ error: "Invalid job id" });
+    }
 
-    const { title, description, location, jobType } = req.body;
+    const title = String(req.body.title ?? "").trim();
+    const description = String(req.body.description ?? "").trim();
+    const requirements = req.body.requirements;
+    const location =
+      req.body.location === undefined || req.body.location === null
+        ? null
+        : String(req.body.location);
+    const salaryRange = req.body.salaryRange;
+    const jobType = String(req.body.jobType ?? "").trim();
 
-    const jobRepo = AppDataSource.getRepository(Job);
+    if (!title || !description || !jobType) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
 
-    const job = await jobRepo.findOneBy({ id: jobId });
+    const job = await jobService.update(jobId, {
+      title,
+      description,
+      requirements:
+        requirements === undefined || requirements === null
+          ? null
+          : String(requirements),
+      location,
+      salaryRange:
+        salaryRange === undefined || salaryRange === null
+          ? null
+          : String(salaryRange),
+      jobType,
+    });
 
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    job.title = title;
-    job.description = description;
-    job.location = location;
-    job.jobType = jobType;
-
-    await jobRepo.save(job);
-
-    res.json(job);
-
+    return res.json(toJobListItem(job));
   } catch (err) {
-    console.log("UPDATE JOB ERROR:", err);
-    res.status(500).send("Error updating job");
+    console.error("UPDATE JOB ERROR:", err);
+    return res.status(500).json({ error: "Error updating job" });
   }
 };
-
-import { Application } from "../entities/Application";
 
 export const deleteJob = async (req: Request, res: Response) => {
   try {
     const jobId = Number(req.params.id);
-
-    const jobRepo = AppDataSource.getRepository(Job);
-    const appRepo = AppDataSource.getRepository(Application);
-
-    const job = await jobRepo.findOneBy({ id: jobId });
-
-    if (!job) {
-      return res.status(404).json({ error: "Job not found" });
+    if (!Number.isInteger(jobId) || jobId < 1) {
+      return res.status(400).json({ error: "Invalid job id" });
     }
 
-    const applications = await appRepo.find({
-      where: { job: { id: jobId } },
-    });
+    const cascadeRaw = req.query.cascade;
+    const cascadeStr = Array.isArray(cascadeRaw)
+      ? cascadeRaw[0]
+      : cascadeRaw;
+    const cascadeApplications =
+      cascadeStr === "1" ||
+      cascadeStr === "true" ||
+      cascadeStr === "yes";
 
-    if (applications.length > 0) {
+    const result = await jobService.deleteJob(jobId, {
+      cascadeApplications,
+    });
+    if (!result.ok) {
+      if (result.reason === "not_found") {
+        return res.status(404).json({ error: "Job not found" });
+      }
       return res.status(400).json({
-        error: "You cannot delete this job because there are applicants.",
+        error:
+          "You cannot delete this job because there are applicants. Retry with ?cascade=true to delete the job and all applications.",
       });
     }
 
-    await jobRepo.remove(job);
-
-    res.json({ message: "Job deleted" });
-
+    return res.json({
+      message: cascadeApplications
+        ? "Job and related applications deleted"
+        : "Job deleted",
+    });
   } catch (err) {
-    console.log("DELETE JOB ERROR:", err);
-    res.status(500).send("Error deleting job");
+    console.error("DELETE JOB ERROR:", err);
+    return res.status(500).json({ error: "Error deleting job" });
   }
 };
